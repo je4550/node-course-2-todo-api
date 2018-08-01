@@ -6,6 +6,7 @@ const _ = require('lodash')
 const { mongoose } = require('./db/mongoose')
 const { Todo } = require('./models/todo');
 const { User } = require('./models/user')
+const { authenticate } = require('./../middleware/authenticate');
 
 const app = express();
 
@@ -43,7 +44,7 @@ app.get('/todos/:id', (req, res) => {
         if (!todo) {
             return res.status(400).send();
         }
-        res.send({todo})
+        res.send({ todo })
     }).catch((e) => {
         res.status(400).send();
     })
@@ -56,7 +57,7 @@ app.delete('/todos/:id', (req, res) => {
     }
 
     Todo.findByIdAndRemove(id).then((todo) => {
-        if(!todo){
+        if (!todo) {
             return res.status(404).send();
         }
         res.send(todo)
@@ -72,20 +73,20 @@ app.patch('/todos/:id', (req, res) => {
     if (!ObjectID.isValid(id)) {
         return res.status(404).send();
     }
-    
-    if(_.isBoolean(body.completed) && body.completed){
+
+    if (_.isBoolean(body.completed) && body.completed) {
         body.completedAt = new Date().getTime();
     } else {
         body.completed = false;
         body.completedAt = null;
     }
 
-    Todo.findByIdAndUpdate(id, {$set: body}, {new: true}).then((todo) => {
-        if(!todo){
+    Todo.findByIdAndUpdate(id, { $set: body }, { new: true }).then((todo) => {
+        if (!todo) {
             return res.status(400).send();
         }
 
-        res.send({todo});
+        res.send({ todo });
     }).catch((e) => {
         res.status(400).send();
     })
@@ -102,7 +103,27 @@ app.post('/users', (req, res) => {
     }).catch((e) => {
         res.status(400).send(e);
     });
-        
+
+})
+
+var authenticate = (req, res, next) => {
+    var token = req.header('x-auth');
+
+    User.findByToken(token).then((user) => {
+        if (!user) {
+            return Promise.reject();
+        }
+
+        req.user = user;
+        req.token = token;
+        next();
+    }).catch((e) => {
+        res.status(401).send();
+    });
+}
+
+app.get('/users/me', authenticate, (req, res) => {
+    res.send(req.user);
 })
 
 app.listen(port, () => {
